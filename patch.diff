@@ -1,0 +1,39 @@
+--- a/server.py
++++ b/server.py
+@@ -43,18 +43,20 @@
+ 
+ 
+ def authenticate(username, password):
+-    # УЯЗВИМОСТЬ 1: SQL Injection — пользовательский ввод вставляется в SQL.
++    # ИСПРАВЛЕНО: параметры SQL передаются отдельно от текста запроса.
+     with connect_db() as db:
+-        query = ("SELECT id, username FROM users "
+-                 f"WHERE username = '{username}' AND password = '{password}'")
+-        return db.execute(query).fetchone()
++        return db.execute(
++            "SELECT id, username FROM users WHERE username = ? AND password = ?",
++            (username, password)
++        ).fetchone()
+ 
+ 
+-def get_note(note_id):
+-    # УЯЗВИМОСТЬ 2: IDOR — не проверяется владелец запрашиваемой заметки.
++def get_note(note_id, user_id):
++    # ИСПРАВЛЕНО: заметка доступна только своему владельцу.
+     with connect_db() as db:
+         return db.execute(
+-            "SELECT id, user_id, title, body FROM notes WHERE id = ?", (note_id,)
++            "SELECT id, user_id, title, body FROM notes WHERE id = ? AND user_id = ?",
++            (note_id, user_id)
+         ).fetchone()
+ 
+ 
+@@ -103,7 +105,7 @@
+             except ValueError:
+                 self.send_json(400, {"error": "Некорректный id"})
+                 return
+-            note = get_note(note_id)
++            note = get_note(note_id, user_id)
+             if note is None:
+                 self.send_json(404, {"error": "Заметка не найдена"})
+                 return
